@@ -1,0 +1,107 @@
+#!/bin/bash
+# sbx-init: the first process inside every sandbox VM.
+#
+#  1. Points /flv/<flavor> at the current build of each flavor in the shared,
+#     read-only pool mounted at /opt/sbx/pool.
+#  2. Runs each flavor's `up` hook (e.g. to start a daemon).
+#  3. Watches the pool. When the host publishes a new build of a flavor, it
+#     runs the old build's `down` hook, re-points /flv/<flavor>, and runs the
+#     new `up` hook. Running sandboxes never need a reboot to get new tools.
+#
+# Why pointer files instead of symlinks on the host: changes made by renaming
+# files on the host are not reliably seen through the VM's virtiofs mount, but
+# newly created paths and in-place writes are. So builds land in fresh,
+# immutable directories (store/<name>-<hash>) and the host overwrites
+# ptr/<name> in place. The symlink that matters lives inside the guest.
+set -u
+
+POOL=/opt/sbx/pool
+RUN=/run/sbx
+LOG=/var/log/sbx
+INTERVAL="${SBX_WATCH_INTERVAL:-2}"
+FLAVORS="${SBX_FLAVORS:-}"
+
+mkdir -p /flv /etc/sbx "$RUN" "$LOG"
+# The root disk survives stop/start; start every boot from a clean slate so
+# hooks run again and stale links are re-resolved.
+rm -f /flv/* /flv/.*.tmp "$RUN"/* 2>/dev/null
+printf '%s\n' "$FLAVORS" > /etc/sbx/flavors
+[ -n "${SBX_ID:-}" ] && printf '%s\n' "$SBX_ID" > /etc/sbx/id
+
+log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" >> "$LOG/init.log"; }
+
+wanted() { # flavor -> store path it should point at (empty if unpublished)
+  local build
+  build=$(head -n1 "$POOL/ptr/$1" 2>/dev/null) || return 0
+  [ -n "$build" ] && [ -d "$POOL/store/$build" ] && printf '%s' "$POOL/store/$build"
+}
+
+hook_up() {
+  local f=$1 h="/flv/$1/hooks/up"
+  [ -x "$h" ] || return 0
+  log "up $f ($(readlink "/flv/$f"))"
+  # Hooks run in their own session so `down` can kill everything they started.
+  FLAVOR_DIR="/flv/$f" setsid "$h" >> "$LOG/$f.log" 2>&1 < /dev/null &
+  echo $! > "$RUN/$f.pid"
+}
+
+hook_down() {
+  local f=$1 h="/flv/$1/hooks/down" pid
+  if [ -x "$h" ]; then
+    log "down $f"
+    FLAVOR_DIR="/flv/$f" timeout 30 "$h" >> "$LOG/$f.log" 2>&1 < /dev/null
+  fi
+  if [ -f "$RUN/$f.pid" ]; then
+    pid=$(cat "$RUN/$f.pid")
+    kill -TERM -- "-$pid" 2>/dev/null
+    for _ in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$pid" 2>/dev/null || break; sleep 0.5; done
+    kill -KILL -- "-$pid" 2>/dev/null
+    rm -f "$RUN/$f.pid"
+  fi
+}
+
+link() { # atomically re-point /flv/<f> inside the guest
+  ln -sfn "$2" "/flv/.$1.tmp" && mv -Tf "/flv/.$1.tmp" "/flv/$1"
+}
+
+sync_flavors() {
+  local f want have
+  for f in $FLAVORS; do
+    want=$(wanted "$f")
+    have=$(readlink "/flv/$f" 2>/dev/null || true)
+    [ -z "$want" ] || [ "$want" = "$have" ] && continue
+    if [ -n "$have" ]; then
+      log "update $f: ${have##*/} -> ${want##*/}"
+      hook_down "$f"
+    else
+      log "link $f -> ${want##*/}"
+    fi
+    link "$f" "$want"
+    hook_up "$f"
+  done
+}
+
+shutdown() {
+  log "shutting down"
+  local f rev=""
+  for f in $FLAVORS; do rev="$f $rev"; done
+  for f in $rev; do hook_down "$f"; done
+  exit 0
+}
+trap shutdown TERM INT
+
+log "boot id=${SBX_ID:-?} flavors=[$FLAVORS]"
+sync_flavors
+touch "$RUN/ready"
+
+# If a command was given, run it as the agent user (one-shot sandbox);
+# otherwise idle and keep watching for flavor updates.
+if [ $# -gt 0 ]; then
+  sudo -u agent -i -- "$@"
+  shutdown
+fi
+
+while :; do
+  sleep "$INTERVAL" & wait $!
+  sync_flavors
+done

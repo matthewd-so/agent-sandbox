@@ -1,0 +1,30 @@
+# Base image for every sandbox VM.
+#
+# Keep this small and boring: anything project- or tool-specific belongs in a
+# flavor (see ../flavors), so it can be updated without rebuilding this image
+# or restarting running sandboxes.
+FROM debian:bookworm-slim
+
+ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates curl wget git openssh-client gnupg sudo less vim-tiny \
+      procps psmisc iproute2 iptables iputils-ping dnsutils \
+      xz-utils unzip zip bzip2 file jq ripgrep fd-find tree tmux \
+      build-essential pkg-config python3 python3-venv \
+    && ln -s /usr/bin/fdfind /usr/local/bin/fd \
+    && rm -rf /var/lib/apt/lists/*
+
+# Unprivileged user the agent runs as. Passwordless sudo is deliberate: the
+# whole VM is disposable, so letting the agent apt-get things is fine.
+RUN useradd -m -s /bin/bash -u 1000 agent \
+    && echo 'agent ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/agent \
+    && chmod 0440 /etc/sudoers.d/agent \
+    && mkdir -p /work /flv /etc/sbx && chown agent:agent /work
+
+COPY sbx-init /usr/local/sbin/sbx-init
+COPY profile.sh /etc/profile.d/zz-sbx.sh
+RUN chmod 0755 /usr/local/sbin/sbx-init
+
+WORKDIR /work
+ENTRYPOINT ["/usr/local/sbin/sbx-init"]

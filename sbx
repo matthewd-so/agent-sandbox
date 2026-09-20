@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# sbx: disposable microVM sandboxes for coding agents.
+#
+# Every command lives in lib/*.sh as a function named cmd_<name>. The comment
+# line directly above it, starting with "##", is its help text.
+set -euo pipefail
+
+SBX_ROOT="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
+export SBX_ROOT
+
+for _lib in "$SBX_ROOT"/lib/*.sh; do
+  # shellcheck source=/dev/null
+  . "$_lib"
+done
+unset _lib
+
+cmd_help() {
+  cat <<EOF
+sbx - disposable microVM sandboxes for coding agents
+
+Usage: sbx <command> [args]
+
+EOF
+  local f
+  for f in "$SBX_ROOT"/lib/*.sh; do
+    awk '/^## /{d=substr($0,4); next}
+         /^cmd_[a-z_]+\(\)/ && d!="" {n=$1; sub(/^cmd_/,"",n); sub(/\(\)$/,"",n); gsub(/_/,"-",n); printf "  %-14s %s\n", n, d}
+         {d=""}' "$f"
+  done
+  cat <<EOF
+
+Run 'sbx init' once to build the base image and default flavors.
+EOF
+}
+
+main() {
+  local cmd="${1:-help}"
+  [ $# -gt 0 ] && shift
+  case "$cmd" in -h|--help) cmd=help ;; esac
+  local fn="cmd_${cmd//-/_}"
+  if ! declare -F "$fn" >/dev/null; then
+    die "unknown command: $cmd (see 'sbx help')"
+  fi
+  "$fn" "$@"
+}
+
+main "$@"
