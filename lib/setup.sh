@@ -21,5 +21,6 @@ cmd_init() {
   fi
   info "building flavors for '$SBX_DEFAULT_FLAVOR'"
   flavor_build 0 "$SBX_DEFAULT_FLAVOR"
+  [ -f "$SBX_HOME/secrets.env" ] || dim "    next: 'sbx auth' to give sandboxes Claude/GitHub credentials"
   info "ready. Try: sbx new --repo https://github.com/you/project"
 }

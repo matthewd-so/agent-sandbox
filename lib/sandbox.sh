@@ -71,7 +71,7 @@ JSON
   fi
 }
 
-## Create a sandbox: [-f flavor] [-n name] [--repo url] [--mount dir] [--cpus n] [--memory 4G] [--port 3000]
+## Create a sandbox: [-f flavor] [-n name] [--repo url] [--mount dir] [--cpus n] [--memory 4G] [--port 3000] [--claude]
 cmd_new() {
   need container jq
   ensure_dirs
@@ -86,6 +86,7 @@ cmd_new() {
       --cpus) cpus=$2; shift ;;
       --memory) mem=$2; shift ;;
       --port) port=$2; shift ;;
+      --claude) attach=1 ;;
       *) die "unknown option: $1" ;;
     esac
     shift
@@ -134,10 +135,12 @@ cmd_new() {
 
   sandbox  $id   ($ip)
   shell    sbx sh $id
+  agent    sbx claude $id
   remove   sbx rm $id
 
 EOF
   printf '%s\n' "$id"
+  if [ "$attach" = 1 ]; then cmd_claude "$id"; fi
 }
 
 ## List sandboxes

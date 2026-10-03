@@ -1,2 +1,2 @@
 DESC="Everything an agent usually needs"
-DEPS="node python gh"
+DEPS="claude python gh"
