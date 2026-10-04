@@ -1,0 +1,10 @@
+#!/bin/bash
+# Stop dockerd and remove its cgroups. Leftover nested cgroups prevent the VM
+# from shutting down cleanly.
+export PATH="$FLAVOR_DIR/bin:$PATH"
+docker ps -q 2>/dev/null | xargs -r docker kill >/dev/null 2>&1
+pkill -TERM dockerd; pkill -TERM containerd
+for _ in $(seq 20); do pgrep -x dockerd >/dev/null || pgrep -x containerd >/dev/null || break; sleep 0.5; done
+pkill -KILL -f containerd-shim 2>/dev/null
+find /sys/fs/cgroup/docker -depth -type d -exec rmdir {} \; 2>/dev/null
+exit 0

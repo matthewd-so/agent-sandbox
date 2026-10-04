@@ -1,0 +1,8 @@
+#!/bin/bash
+# Start dockerd inside the VM. The VM has its own kernel, so this does not
+# touch the host. The guest mounts /proc/sys read-only by default.
+set -eu
+mount -o remount,rw /proc/sys 2>/dev/null || true
+export PATH="$FLAVOR_DIR/bin:$PATH"
+# Socket group = agent, so the agent user can use docker without sudo.
+exec dockerd --group agent --data-root /var/lib/docker
