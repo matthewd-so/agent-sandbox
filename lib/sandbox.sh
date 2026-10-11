@@ -128,12 +128,14 @@ cmd_new() {
   wait_ready "$id"
   provision "$id" "$repo"
   trap - EXIT
+  proxy_refresh
 
   local ip
   ip=$(sandbox_field "$id" ip)
   cat >&2 <<EOF
 
   sandbox  $id   ($ip)
+  web      $(sandbox_url "$id")   (any port: http://<port>.$id.localhost:$SBX_PROXY_PORT)
   shell    sbx sh $id
   agent    sbx claude $id
   remove   sbx rm $id
@@ -180,6 +182,7 @@ cmd_start() {
     wait_ready "$id"
     info "started $id"
   done
+  proxy_refresh
 }
 
 stop_one() {
@@ -197,6 +200,7 @@ cmd_stop() {
     stop_one "$id"
     info "stopped $id"
   done
+  proxy_refresh
 }
 
 ## Delete sandboxes
@@ -217,6 +221,7 @@ cmd_rm() {
     [ -z "$(sandbox_field "$id" state)" ] || die "could not remove $id"
     info "removed $id"
   done
+  proxy_refresh
 }
 
 ## Show a sandbox's init and flavor hook logs
