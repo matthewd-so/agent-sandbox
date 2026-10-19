@@ -71,7 +71,7 @@ JSON
   fi
 }
 
-## Create a sandbox: [-f flavor] [-n name] [--repo url] [--mount dir] [--cpus n] [--memory 4G] [--port 3000] [--claude]
+## Create a sandbox: [-f flavor] [-n name] [--repo url] [--mount dir] [--cpus n] [--memory 4G] [--port 3000] [--history id] [--claude]
 cmd_new() {
   need container jq
   ensure_dirs
@@ -86,6 +86,7 @@ cmd_new() {
       --cpus) cpus=$2; shift ;;
       --memory) mem=$2; shift ;;
       --port) port=$2; shift ;;
+      --history) history=$2; shift ;;
       --claude) attach=1 ;;
       *) die "unknown option: $1" ;;
     esac
@@ -127,6 +128,7 @@ cmd_new() {
 
   wait_ready "$id"
   provision "$id" "$repo"
+  if [ -n "$history" ]; then history_restore "$id" "$history"; fi
   trap - EXIT
   proxy_refresh
 
@@ -203,15 +205,16 @@ cmd_stop() {
   proxy_refresh
 }
 
-## Delete sandboxes
+## Delete sandboxes (agent history is backed up first; --no-backup to skip)
 cmd_rm() {
-  local ids=() id state
+  local backup=1 ids=() id state
   for id in "$@"; do
-    case "$id" in -*) die "unknown option: $id" ;; *) ids+=("$id") ;; esac
+    case "$id" in --no-backup) backup=0 ;; -*) die "unknown option: $id" ;; *) ids+=("$id") ;; esac
   done
-  [ ${#ids[@]} -gt 0 ] || die "usage: sbx rm <id...>"
+  [ ${#ids[@]} -gt 0 ] || die "usage: sbx rm [--no-backup] <id...>"
   for id in "${ids[@]}"; do
     state=$(require_sandbox "$id")
+    if [ "$state" = running ] && [ "$backup" = 1 ]; then history_save "$id" || true; fi
     [ "$state" = running ] && stop_one "$id"
     for _ in 1 2 3 4 5; do
       container rm -f "$SBX_PREFIX$id" >/dev/null 2>&1 && break
