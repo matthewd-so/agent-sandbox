@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="460" viewBox="0 0 1120 460" role="img" aria-labelledby="t d">
+  <title id="t">sbx architecture</title>
+  <desc id="d">The sbx CLI on macOS manages microVMs through Apple's container runtime. A read-only flavor pool is mounted into every VM, and a Caddy proxy routes localhost subdomains to each VM.</desc>
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#64748b"/>
+    </marker>
+  </defs>
+  <style>
+    text { font-family: ui-sans-serif, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .h { font-size: 15px; font-weight: 600; fill: #e2e8f0; }
+    .s { font-size: 12.5px; fill: #94a3b8; }
+    .box { fill: #0f172a; stroke: #334155; }
+    .vm { fill: #0b1324; stroke: #5eead4; }
+    .ln { stroke: #64748b; stroke-width: 1.5; fill: none; }
+  </style>
+
+  <rect width="1120" height="460" rx="18" fill="#0b1020"/>
+
+  <!-- host frame -->
+  <rect x="24" y="24" width="1072" height="412" rx="14" fill="none" stroke="#1e293b" stroke-dasharray="6 6"/>
+  <text x="44" y="52" class="s">macOS host (Apple Silicon)</text>
+
+  <!-- CLI -->
+  <rect x="48" y="80" width="230" height="96" rx="10" class="box"/>
+  <text x="66" y="110" class="h mono">sbx</text>
+  <text x="66" y="134" class="s">bash CLI, no daemon</text>
+  <text x="66" y="154" class="s">state kept in VM labels</text>
+
+  <!-- builder -->
+  <rect x="48" y="214" width="230" height="96" rx="10" class="box"/>
+  <text x="66" y="244" class="h">Build VM</text>
+  <text x="66" y="268" class="s">runs build.sh at /flv/&lt;name&gt;</text>
+  <text x="66" y="288" class="s">streams result back as tar</text>
+
+  <!-- pool -->
+  <rect x="48" y="340" width="520" height="76" rx="10" fill="#111c33" stroke="#475569"/>
+  <text x="66" y="368" class="h mono">~/.sbx/pool</text>
+  <text x="66" y="394" class="s mono">store/&lt;name&gt;-&lt;hash&gt;/</text><text x="236" y="394" class="s">immutable builds</text>
+  <text x="360" y="394" class="s mono">ptr/&lt;name&gt;</text><text x="446" y="394" class="s">current build</text>
+
+  <!-- proxy -->
+  <rect x="848" y="80" width="224" height="96" rx="10" class="box"/>
+  <text x="866" y="110" class="h">Caddy proxy</text>
+  <text x="866" y="134" class="s mono">&lt;id&gt;.localhost:7777</text>
+  <text x="866" y="154" class="s mono">&lt;port&gt;.&lt;id&gt;.localhost:7777</text>
+
+  <!-- runtime -->
+  <rect x="330" y="80" width="470" height="230" rx="12" fill="none" stroke="#334155"/>
+  <text x="348" y="106" class="s">Apple container runtime (Virtualization.framework)</text>
+
+  <g>
+    <rect x="348" y="124" width="138" height="168" rx="10" class="vm"/>
+    <text x="364" y="150" class="h mono" style="fill:#5eead4">sb412</text>
+    <text x="364" y="174" class="s">own Linux kernel</text>
+    <text x="364" y="194" class="s mono">sbx-init</text>
+    <text x="364" y="214" class="s mono">/flv/* → pool</text>
+    <text x="364" y="234" class="s mono">dockerd</text>
+    <text x="364" y="254" class="s mono">claude</text>
+    <text x="364" y="274" class="s mono">/work</text>
+  </g>
+  <g>
+    <rect x="496" y="124" width="138" height="168" rx="10" class="vm" style="stroke:#818cf8"/>
+    <text x="512" y="150" class="h mono" style="fill:#a5b4fc">sb907</text>
+    <text x="512" y="174" class="s">own Linux kernel</text>
+    <text x="512" y="194" class="s mono">sbx-init</text>
+    <text x="512" y="214" class="s mono">/flv/* → pool</text>
+    <text x="512" y="234" class="s mono">claude</text>
+    <text x="512" y="254" class="s mono">/work</text>
+  </g>
+  <g>
+    <rect x="644" y="124" width="138" height="168" rx="10" class="vm" style="stroke:#64748b;stroke-dasharray:5 5"/>
+    <text x="660" y="150" class="h mono" style="fill:#94a3b8">…</text>
+    <text x="660" y="174" class="s">one VM per task</text>
+  </g>
+
+  <!-- edges -->
+  <path d="M278 128H322" class="ln" marker-end="url(#arr)"/>
+  <text x="282" y="120" class="s">run</text>
+  <path d="M163 176V206" class="ln" marker-end="url(#arr)"/>
+  <path d="M163 310V332" class="ln" marker-end="url(#arr)"/>
+  <text x="172" y="326" class="s">publish</text>
+  <path d="M565 310V332" class="ln" marker-start="url(#arr)"/>
+  <text x="576" y="326" class="s">read-only virtiofs mount</text>
+  <path d="M842 128H808" class="ln" marker-end="url(#arr)"/>
+  <text x="812" y="120" class="s">HTTP</text>
+</svg>

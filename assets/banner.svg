@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-labelledby="t d">
+  <title id="t">sbx</title>
+  <desc id="d">Disposable microVM sandboxes for coding agents</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1020"/>
+      <stop offset="1" stop-color="#111a33"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#5eead4"/>
+      <stop offset="1" stop-color="#818cf8"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#ffffff" stroke-opacity="0.04"/>
+    </pattern>
+  </defs>
+
+  <rect width="1280" height="360" rx="20" fill="url(#bg)"/>
+  <rect width="1280" height="360" rx="20" fill="url(#grid)"/>
+
+  <!-- wordmark -->
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
+    <text x="88" y="168" font-size="112" font-weight="700" fill="url(#accent)">sbx</text>
+    <text x="92" y="216" font-size="24" fill="#e2e8f0">Disposable microVMs</text>
+    <text x="92" y="248" font-size="24" fill="#e2e8f0">for coding agents</text>
+    <text x="92" y="292" font-size="16" fill="#94a3b8">one VM per task · own kernel · hot-swappable tools</text>
+  </g>
+
+  <!-- host with sandboxes -->
+  <g transform="translate(800 56)" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
+    <rect x="0" y="0" width="400" height="248" rx="14" fill="#0f172a" stroke="#334155"/>
+    <text x="20" y="32" font-size="14" fill="#64748b">macOS host</text>
+
+    <g>
+      <rect x="20" y="48" width="112" height="112" rx="10" fill="#0b1324" stroke="#5eead4" stroke-opacity="0.8"/>
+      <text x="34" y="76" font-size="15" fill="#5eead4">sb412</text>
+      <rect x="34" y="90" width="84" height="8" rx="4" fill="#5eead4" fill-opacity="0.25"/>
+      <rect x="34" y="106" width="60" height="8" rx="4" fill="#5eead4" fill-opacity="0.18"/>
+      <text x="34" y="146" font-size="11" fill="#64748b">kernel 6.18</text>
+    </g>
+    <g>
+      <rect x="144" y="48" width="112" height="112" rx="10" fill="#0b1324" stroke="#818cf8" stroke-opacity="0.8"/>
+      <text x="158" y="76" font-size="15" fill="#a5b4fc">sb907</text>
+      <rect x="158" y="90" width="70" height="8" rx="4" fill="#818cf8" fill-opacity="0.28"/>
+      <rect x="158" y="106" width="84" height="8" rx="4" fill="#818cf8" fill-opacity="0.18"/>
+      <text x="158" y="146" font-size="11" fill="#64748b">kernel 6.18</text>
+    </g>
+    <g>
+      <rect x="268" y="48" width="112" height="112" rx="10" fill="#0b1324" stroke="#94a3b8" stroke-opacity="0.5" stroke-dasharray="5 5"/>
+      <text x="282" y="76" font-size="15" fill="#94a3b8">api</text>
+      <rect x="282" y="90" width="50" height="8" rx="4" fill="#94a3b8" fill-opacity="0.2"/>
+      <rect x="282" y="106" width="76" height="8" rx="4" fill="#94a3b8" fill-opacity="0.14"/>
+      <text x="282" y="146" font-size="11" fill="#64748b">stopped</text>
+    </g>
+
+    <!-- shared pool -->
+    <path d="M76 160V184M200 160V184M324 160V184" stroke="#475569" stroke-dasharray="3 4"/>
+    <rect x="20" y="184" width="360" height="44" rx="10" fill="#111c33" stroke="#475569"/>
+    <text x="36" y="211" font-size="13" fill="#cbd5e1">/opt/sbx/pool</text>
+    <text x="160" y="211" font-size="12" fill="#64748b">node·claude·python·gh·docker</text>
+  </g>
+</svg>
