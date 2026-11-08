@@ -15,8 +15,10 @@
   <a href="#usage">Usage</a> ·
   <a href="#architecture">Architecture</a> ·
   <a href="#flavors">Flavors</a> ·
+  <a href="#performance">Performance</a> ·
   <a href="#security-model">Security</a> ·
-  <a href="#configuration">Configuration</a>
+  <a href="#configuration">Configuration</a> ·
+  <a href="#roadmap">Roadmap</a>
 </p>
 
 ---
@@ -50,8 +52,8 @@ $ sbx new --repo https://github.com/acme/web --claude
 | | |
 | :-- | :-- |
 | **Kernel-level isolation** | One microVM per sandbox under Apple's [`container`](https://github.com/apple/container) runtime, each with dedicated CPU and memory limits and its own IP address. |
-| **Fast, disposable environments** | A sandbox boots, provisions credentials, and clones a repository in about three seconds. |
-| **Shared, hot-swappable toolchains** | Flavors are stored once on the host and mounted read-only into every VM. A rebuilt flavor takes effect in running sandboxes within about three seconds. |
+| **Fast, disposable environments** | A sandbox boots and is provisioned in 1.7 s on average, or 2.1 s including a repository clone. |
+| **Shared, hot-swappable toolchains** | Flavors are stored once on the host and mounted read-only into every VM. A rebuilt flavor reaches every running sandbox in under 2.5 s, without a reboot. |
 | **Docker inside the sandbox** | A full Docker Engine and Compose run inside the VM, with no privileged host container. |
 | **Per-sandbox URLs** | `http://<id>.localhost` and `http://<port>.<id>.localhost` are routed through a loopback-only Caddy proxy. |
 | **Agent history retention** | Claude Code transcripts are archived when a sandbox is removed, and can be restored into a new sandbox. |
@@ -207,6 +209,24 @@ its dependencies' builds, or the base image definition change, or when
 `--refresh` is given. To keep custom flavors outside this repository, set
 `SBX_EXTRA_FLAVORS` to one or more directories.
 
+## Performance
+
+Measured on a MacBook Pro (M1 Max, 10 cores, 32 GB) running macOS 26.5, using the
+`default` flavor (Node.js, Claude Code, Python, GitHub CLI, Docker).
+
+| Metric | Result |
+| :-- | :-- |
+| Create a sandbox (boot, init, provisioning) | **1.65 s** median, 2.05 s p95 (n = 10) |
+| Create a sandbox and clone a repository | **2.08 s** median (n = 3) |
+| Sandboxes running concurrently on one laptop | **40**, each with its own kernel and Docker Engine, with 35% of host memory still free |
+| Flavor update reaching running sandboxes | **0.9 s** median, under 2.5 s worst case, across 20 VMs × 5 rounds (n = 100) |
+| Toolchain storage for 20 sandboxes | **1.3 GB** shared, versus 26 GB if each had its own copy (95% less) |
+| Tear down 40 sandboxes | **10 s** |
+
+Update latency is bounded by `sbx-init`'s two-second polling interval. It is
+measured from the moment the pointer is written on the host, and includes
+clock skew of about ±0.4 s between guest and host.
+
 ## Security model
 
 - **Boundary.** Isolation comes from the VM. Root inside a sandbox has all
@@ -234,15 +254,24 @@ its dependencies' builds, or the base image definition change, or when
 | `SBX_PROXY_AUTO` | `1` | Start the proxy automatically on first use |
 | `SBX_EXTRA_FLAVORS` | — | Additional flavor directories, separated by `:` |
 
-## Limitations
+## Roadmap
 
-- VM resources are fixed at creation. The runtime does not support memory
-  ballooning or CPU overcommit.
-- Only command-line tools are provided. There is no graphical desktop or
-  computer-use integration.
-- Sandboxes run on the local machine only. Because every runtime call is
-  isolated in the CLI, porting the same layout to Cloud Hypervisor on a
-  remote Linux host would mainly mean replacing the `container` invocations.
+Work in progress:
+
+- **Remote hosts.** A Cloud Hypervisor backend, so sandboxes can run on a
+  dedicated Linux server and be used from any device over SSH.
+- **Elastic resources.** Memory ballooning and CPU sharing, so idle sandboxes
+  give capacity back and more of them fit on one machine.
+- **Event-driven updates.** Replacing the two-second pointer poll with a
+  host-to-guest notification channel to bring flavor propagation below 100 ms.
+- **Snapshots and forking.** Capturing a running sandbox and branching it,
+  so several agents can try alternative approaches from the same state.
+- **Network egress policy.** Per-sandbox outbound allowlists, so an agent
+  can reach package registries and its Git remote but nothing else.
+- **Desktop sandboxes.** An optional graphical session with computer-use
+  integration for agents that need to drive a browser or GUI.
+- **One VM per agent thread.** Automatically creating a sandbox for each
+  conversation started in an agent UI.
 
 ## License
 
