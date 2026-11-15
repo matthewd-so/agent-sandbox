@@ -3,9 +3,13 @@
 
 ## Build the base VM image
 cmd_image() {
-  need container
+  need "$SBX_RUNTIME"
   info "building $SBX_IMAGE"
-  container build --progress plain -t "$SBX_IMAGE" "$SBX_ROOT/image"
+  if [ "$SBX_RUNTIME" = container ]; then
+    container build --progress plain -t "$SBX_IMAGE" "$SBX_ROOT/image"
+  else
+    "$SBX_RUNTIME" build -f "$SBX_ROOT/image/Containerfile" -t "$SBX_IMAGE" "$SBX_ROOT/image"
+  fi
 }
 
 ## First-time setup: start the runtime, build the image and default flavors

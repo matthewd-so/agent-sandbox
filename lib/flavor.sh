@@ -132,7 +132,7 @@ flavor_build_one() { # name refresh(0/1)
   # valid. The result streams back as a tar archive on stdout; build output
   # goes to stderr. (Writing straight into a virtiofs mount is unreliable.)
   if [ -f "$dir/build.sh" ]; then
-    container run --rm --progress none --name "sbx-build-$name-$$" \
+    rt_run --rm --name "sbx-build-$name-$$" \
       --cpus "${SBX_BUILD_CPUS:-4}" --memory "${SBX_BUILD_MEMORY:-4G}" \
       "${mounts[@]}" \
       -e "OUT=/flv/$name" -e "FLAVOR=$name" -e "DEPS=$deps" -e HOME=/root \
@@ -221,7 +221,7 @@ cmd_flavor() {
           "${cur:--}" "${deps:--}" "$(flavor_var "$n" DESC)"
       done ;;
     build)
-      need container
+      need "$SBX_RUNTIME"
       local refresh=0 names=() n
       while [ $# -gt 0 ]; do
         case "$1" in

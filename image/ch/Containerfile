@@ -1,0 +1,17 @@
+# Root filesystem for Cloud Hypervisor guests: the regular sandbox image
+# plus an SSH server (the host's way in) and sbx-boot as PID 1.
+# scripts/ch-mkrootfs.sh turns this into an ext4 disk image.
+ARG BASE=sbx-base:latest
+FROM ${BASE}
+
+RUN apt-get update && apt-get install -y --no-install-recommends openssh-server kmod \
+    && rm -rf /var/lib/apt/lists/* /etc/ssh/ssh_host_* \
+    && printf '%s\n' \
+         'PasswordAuthentication no' \
+         'KbdInteractiveAuthentication no' \
+         'PermitRootLogin no' \
+         'AllowUsers agent' \
+         > /etc/ssh/sshd_config.d/sbx.conf
+
+COPY sbx-boot /usr/local/sbin/sbx-boot
+RUN chmod 0755 /usr/local/sbin/sbx-boot

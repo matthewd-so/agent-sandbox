@@ -37,6 +37,10 @@ main() {
   local cmd="${1:-help}"
   [ $# -gt 0 ] && shift
   case "$cmd" in -h|--help) cmd=help ;; esac
+  # With SBX_REMOTE set, sandbox commands run on a Linux host via sbx-host.
+  if [ -n "${SBX_REMOTE:-}" ] && remote_handles "$cmd"; then
+    remote_dispatch "$cmd" "$@"
+  fi
   local fn="cmd_${cmd//-/_}"
   if ! declare -F "$fn" >/dev/null; then
     die "unknown command: $cmd (see 'sbx help')"

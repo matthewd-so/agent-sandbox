@@ -1,0 +1,87 @@
+#!/bin/bash
+# sbx-boot: PID 1 inside Cloud Hypervisor guests.
+#
+# Under Apple's container runtime the runtime sets up the guest. Here the
+# kernel boots straight into this script, so it does that work itself, then
+# runs the same sbx-init as the macOS backend. Settings arrive as
+# environment variables, which the kernel builds from unrecognised key=value
+# parameters on its command line (see internal/host/vm.go):
+#
+#   SBX_ID  SBX_FLAVORS (comma-separated)  SBX_IP (CIDR)  SBX_GW  SBX_DNS
+set -u
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export LANG=C.UTF-8
+
+log() { echo "sbx-boot: $*" > /dev/console 2>/dev/null || echo "sbx-boot: $*"; }
+
+SBX_ID=${SBX_ID:?missing from kernel command line}
+SBX_IP=${SBX_IP:?missing from kernel command line}
+SBX_GW=${SBX_GW:?missing from kernel command line}
+SBX_DNS=${SBX_DNS:-1.1.1.1}
+SBX_FLAVORS=${SBX_FLAVORS:-}
+
+# Kernel filesystems.
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev 2>/dev/null
+mkdir -p /dev/pts /dev/shm
+mount -t devpts -o gid=5,mode=620,ptmxmode=666 devpts /dev/pts
+mount -t tmpfs -o mode=1777 tmpfs /dev/shm
+mount -t tmpfs -o mode=755 tmpfs /run
+mount -t tmpfs -o mode=1777 tmpfs /tmp
+mount -t cgroup2 cgroup2 /sys/fs/cgroup
+echo 1 > /proc/sys/kernel/sysrq
+
+# Identity.
+hostname "$SBX_ID"
+echo "$SBX_ID" > /etc/hostname
+grep -qw "$SBX_ID" /etc/hosts || echo "127.0.1.1 $SBX_ID" >> /etc/hosts
+
+# Shared directories: the flavor pool and this sandbox's one-time seed.
+mkdir -p /opt/sbx/pool /opt/sbx/seed
+mount -t virtiofs -o ro pool /opt/sbx/pool || log "could not mount the flavor pool"
+mount -t virtiofs -o ro seed /opt/sbx/seed || log "could not mount the seed share"
+
+# Network: static address on the host bridge.
+ip link set lo up
+ip link set eth0 up
+ip addr add "$SBX_IP" dev eth0
+ip route add default via "$SBX_GW"
+echo "nameserver $SBX_DNS" > /etc/resolv.conf
+
+# Host access for the agent user, and its credentials. The seed is
+# unmounted afterwards so nothing else in the guest can read it.
+install -d -m 700 -o agent -g agent /home/agent/.ssh /home/agent/.sbx
+install -m 600 -o agent -g agent /opt/sbx/seed/authorized_keys /home/agent/.ssh/authorized_keys
+if [ -f /opt/sbx/seed/secrets.env ]; then
+  install -m 600 -o agent -g agent /opt/sbx/seed/secrets.env /home/agent/.sbx/secrets.env
+fi
+umount /opt/sbx/seed
+
+mkdir -p /run/sshd
+ssh-keygen -A > /dev/null
+/usr/sbin/sshd
+
+# The flavor watcher, exactly as on macOS.
+export SBX_ID
+export SBX_FLAVORS="${SBX_FLAVORS//,/ }"
+/usr/local/sbin/sbx-init &
+init_pid=$!
+log "ready ($SBX_IP, flavors: $SBX_FLAVORS)"
+
+poweroff() {
+  # sbx-init runs each flavor's down hook on TERM, e.g. stopping dockerd.
+  kill -TERM "$init_pid" 2>/dev/null
+  wait "$init_pid" 2>/dev/null
+  sync
+  echo o > /proc/sysrq-trigger
+  sleep 30
+}
+trap poweroff TERM INT
+
+# As PID 1 this shell also inherits orphaned processes; waiting reaps them.
+while kill -0 "$init_pid" 2>/dev/null; do
+  wait -n 2>/dev/null || sleep 1
+done
+log "sbx-init exited; powering off"
+poweroff

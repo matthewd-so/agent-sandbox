@@ -6,6 +6,9 @@ SBX_IMAGE="${SBX_IMAGE:-sbx-base:latest}"
 SBX_POOL="$SBX_HOME/pool"
 SBX_FLAVOR_DIRS="${SBX_FLAVOR_DIRS:-$SBX_ROOT/flavors${SBX_EXTRA_FLAVORS:+:$SBX_EXTRA_FLAVORS}}"
 SBX_PREFIX="sbx-"   # container name prefix
+# Runtime used for image and flavor builds: Apple's `container` on macOS,
+# or `docker` when building on a Linux host for the Cloud Hypervisor backend.
+SBX_RUNTIME="${SBX_RUNTIME:-container}"
 
 if [ -t 2 ]; then
   _c_dim=$'\e[2m' _c_red=$'\e[31m' _c_grn=$'\e[32m' _c_yel=$'\e[33m' _c_off=$'\e[0m'
@@ -27,6 +30,11 @@ need() {
 
 ensure_dirs() {
   mkdir -p "$SBX_POOL/store" "$SBX_POOL/ptr" "$SBX_HOME/history" "$SBX_HOME/proxy"
+}
+
+# `<runtime> run`, without progress bars.
+rt_run() {
+  if [ "$SBX_RUNTIME" = container ]; then container run --progress none "$@"; else "$SBX_RUNTIME" run "$@"; fi
 }
 
 sha() { shasum -a 256 | cut -c1-"${1:-64}"; }
