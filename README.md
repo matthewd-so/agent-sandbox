@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://github.com/matthewd-so/agent-sandbox/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/matthewd-so/agent-sandbox/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Platform: macOS 26+ on Apple Silicon" src="https://img.shields.io/badge/platform-macOS%2026%2B%20%C2%B7%20Apple%20Silicon-0b1020">
-  <img alt="Written in Bash" src="https://img.shields.io/badge/written%20in-bash-5eead4">
+  <img alt="Written in Go and Bash" src="https://img.shields.io/badge/written%20in-Go%20%C2%B7%20Bash-5eead4">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-818cf8"></a>
 </p>
 
@@ -15,6 +15,7 @@
   <a href="#usage">Usage</a> ·
   <a href="#architecture">Architecture</a> ·
   <a href="#flavors">Flavors</a> ·
+  <a href="#linux-hosts-cloud-hypervisor">Linux hosts</a> ·
   <a href="#performance">Performance</a> ·
   <a href="#security-model">Security</a> ·
   <a href="#configuration">Configuration</a> ·
@@ -77,7 +78,8 @@ Silicon.
 ## Installation
 
 **Requirements:** an Apple Silicon Mac running macOS 26 or later, and
-[Homebrew](https://brew.sh).
+[Homebrew](https://brew.sh). To run sandboxes on a Linux server instead, see
+[Linux hosts](#linux-hosts-cloud-hypervisor).
 
 ```sh
 brew install container jq caddy
@@ -209,6 +211,51 @@ its dependencies' builds, or the base image definition change, or when
 `--refresh` is given. To keep custom flavors outside this repository, set
 `SBX_EXTRA_FLAVORS` to one or more directories.
 
+## Linux hosts (Cloud Hypervisor)
+
+> **Status: experimental.** The backend is covered by unit tests that run
+> the full sandbox lifecycle against a simulated hypervisor. Every request
+> it sends is checked against Cloud Hypervisor's published OpenAPI
+> specification (v54.1), and the guest disk image builds under both Docker
+> and Apple's runtime. It has not yet been validated end to end on KVM
+> hardware.
+
+The same sandboxes can run on a Linux server, where each one is a
+[Cloud Hypervisor](https://www.cloudhypervisor.org) microVM managed by
+`sbx-host`, a Go service in [`cmd/sbx-host`](cmd/sbx-host). The flavor pool,
+`sbx-init`, and the agent workflow are unchanged. With `SBX_REMOTE` set, the
+`sbx` CLI on the Mac forwards sandbox commands to the server over SSH.
+
+```sh
+# On the server (Debian 12+ or Ubuntu 24.04+, x86_64 or arm64, with /dev/kvm)
+git clone https://github.com/matthewd-so/agent-sandbox /opt/sbx
+sudo /opt/sbx/scripts/ch-host-setup.sh
+
+# On the Mac
+export SBX_REMOTE=you@server
+sbx remote auth                      # copy local credentials to the server
+sbx new --repo <url>                 # runs on the server
+sbx claude sb412
+```
+
+| | macOS backend | Linux backend |
+| :-- | :-- | :-- |
+| Hypervisor | Apple Virtualization.framework, through `container` | Cloud Hypervisor on KVM |
+| Control plane | `sbx` (Bash) | `sbx-host` (Go), driving the Cloud Hypervisor REST API over a Unix socket |
+| Root disk | Image layers managed by the runtime | Per-sandbox ext4 clone (reflink, copy-on-write where supported) |
+| Flavor pool | virtiofs, read-only | `virtiofsd --readonly`, read-only |
+| Guest PID 1 | Runtime init, then `sbx-init` | [`sbx-boot`](image/ch/sbx-boot), then `sbx-init` |
+| Networking | Runtime-managed NAT | Tap per VM on an isolated bridge port, with NAT. Sandboxes cannot reach each other or the host. |
+| Access | `container exec` | SSH with a host-generated key, which is injected at boot from a share that is unmounted afterwards |
+| Memory | Fixed at creation | Free-page reporting returns unused guest memory automatically. `sbx-host resize --reclaim` inflates the balloon. |
+| vCPUs | Fixed at creation | Hot-resizable up to a per-sandbox maximum with `sbx-host resize --cpus` |
+
+`sbx-host` keeps each sandbox's configuration in
+`/var/lib/sbx/sandboxes/<id>/sandbox.json`. Live state always comes from
+the hypervisor itself. Addresses are allocated under a host-wide lock from
+the set of existing sandboxes, so concurrent creates never collide, and a
+failed create removes everything it started.
+
 ## Performance
 
 Measured on a MacBook Pro (M1 Max, 10 cores, 32 GB) running macOS 26.5, using the
@@ -258,10 +305,12 @@ clock skew of about ±0.4 s between guest and host.
 
 Work in progress:
 
-- **Remote hosts.** A Cloud Hypervisor backend, so sandboxes can run on a
-  dedicated Linux server and be used from any device over SSH.
-- **Elastic resources.** Memory ballooning and CPU sharing, so idle sandboxes
-  give capacity back and more of them fit on one machine.
+- **Linux backend on hardware.** End-to-end validation and benchmarks of
+  the Cloud Hypervisor backend on bare-metal KVM, followed by a
+  boot-time-optimised guest kernel.
+- **Elastic resources everywhere.** Bringing balloon-based memory reclamation
+  and CPU sharing from the Linux backend to macOS, so idle sandboxes give
+  capacity back.
 - **Event-driven updates.** Replacing the two-second pointer poll with a
   host-to-guest notification channel to bring flavor propagation below 100 ms.
 - **Snapshots and forking.** Capturing a running sandbox and branching it,

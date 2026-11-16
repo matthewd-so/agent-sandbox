@@ -6,6 +6,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: shellcheck
-        run: shellcheck -x -s bash sbx lib/*.sh image/sbx-init image/profile.sh flavors/*/build.sh flavors/*/env.sh flavors/*/hooks/*
+        run: shellcheck -x -s bash sbx lib/*.sh image/sbx-init image/profile.sh image/ch/sbx-boot scripts/*.sh flavors/*/build.sh flavors/*/env.sh flavors/*/hooks/*
       - name: flavor graph
         run: ./sbx flavor check
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: vet
+        run: go vet ./...
+      - name: test
+        run: go test -race ./...
+      - name: build sbx-host (linux/amd64, linux/arm64)
+        run: |
+          GOARCH=amd64 CGO_ENABLED=0 go build -o /dev/null ./cmd/sbx-host
+          GOARCH=arm64 CGO_ENABLED=0 go build -o /dev/null ./cmd/sbx-host
