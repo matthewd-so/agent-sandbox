@@ -265,10 +265,10 @@ Measured on a MacBook Pro (M1 Max, 10 cores, 32 GB) running macOS 26.5, using th
 | :-- | :-- |
 | Create a sandbox (boot, init, provisioning) | **1.65 s** median, 2.05 s p95 (n = 10) |
 | Create a sandbox and clone a repository | **2.08 s** median (n = 3) |
-| Sandboxes running concurrently on one laptop | **40**, each with its own kernel and Docker Engine, with 35% of host memory still free |
+| Sandboxes running concurrently on one laptop | **126**, each with its own kernel and Docker Engine. This is macOS's per-host VM limit, reached with 37% of host memory still free. |
 | Flavor update reaching running sandboxes | **0.9 s** median, under 2.5 s worst case, across 20 VMs × 5 rounds (n = 100) |
 | Toolchain storage for 20 sandboxes | **1.3 GB** shared, versus 26 GB if each had its own copy (95% less) |
-| Tear down 40 sandboxes | **10 s** |
+| Tear down 40 sandboxes | **10 s** (126 sandboxes: 53 s) |
 
 Update latency is bounded by `sbx-init`'s two-second polling interval. It is
 measured from the moment the pointer is written on the host, and includes
